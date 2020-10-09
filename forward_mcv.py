@@ -2,42 +2,45 @@ from __future__ import annotations
 from functools import reduce
 
 
+class Point:
+    def __init__(self, row: int, col: int):
+        self.row = row
+        self.col = col
+
+
 # box's position represented by its start (top, left) and end (bottom, right)
 class BoxPosition:
-    def __init__(self, start: (int, int), end: (int, int)):
+    def __init__(self, start: Point, end: Point):
         self.start = start
         self.end = end
 
 
 class Box:
-    def __init__(self, idx: int, remaining_pos: [BoxPosition] = None):
-        if remaining_pos is None:
-            self.remaining_pos = []
-        else:
-            self.remaining_pos = remaining_pos
+    def __init__(self, idx: int, remaining_pos: [BoxPosition] = []):
+        self.remaining_pos = remaining_pos
         self.idx = idx
-        self.final_pos = (-1, -1)
+        self.final_pos = None
 
     # check constraints for the given position
-    def check_pos(self, pos: BoxPosition, rows: int, cols: int, pillars: [(int, int)]) -> bool:
-        if pos.end[0] <= rows and pos.end[1] <= cols:
-            for (pr, pc) in pillars:
-                if pos.start[0] < pr < pos.end[0] and pos.start[1] < pc < pos.end[1]:
+    def check_pos(self, pos: BoxPosition, rows: int, cols: int, pillars: [Point]) -> bool:
+        if pos.end.row <= rows and pos.end.col <= cols:
+            for (prow, pcol) in pillars:
+                if pos.start.row < prow < pos.end.row and pos.start.col < pcol < pos.end.col:
                     return False
             return True
         return False
 
     # initialize remaining positions from the constraints
-    def init_pos(self, length: int, width: int, rows: int, cols: int, pillars: [(int, int)]):
+    def init_pos(self, length: int, width: int, rows: int, cols: int, pillars: [Point]):
         for r in range(0, rows):
             for c in range(0, cols):
                 # first without rotating
-                pos = BoxPosition((r, c), (r + length, c + width))
+                pos = BoxPosition(Point(r, c), Point(r + length, c + width))
                 if self.check_pos(pos, rows, cols, pillars):
                     self.remaining_pos.append(pos)
                 if length != width:
                     # if it's not a square then check rotated
-                    pos_rotated = BoxPosition((r, c), (r + width, c + length))
+                    pos_rotated = BoxPosition(Point(r, c), Point(r + width, c + length))
                     if self.check_pos(pos_rotated, rows, cols, pillars):
                         self.remaining_pos.append(pos_rotated)
 
@@ -45,8 +48,8 @@ class Box:
     # box coordinates - start: (top, left), end: (bottom, right)
     def added_box(self, added: BoxPosition) -> Box:
         def is_compatible(p):
-            return not ((p.start[0] < added.end[0] and p.start[1] < added.end[1])
-                        and (p.end[0] > added.start[0] and p.end[1] > added.start[1]))
+            return not ((p.start.row < added.end.row and p.start.col < added.end.col)
+                        and (p.end.row > added.start.row and p.end.col > added.start.col))
 
         new_remaining_pos = list(filter(is_compatible, self.remaining_pos))
         return Box(self.idx, new_remaining_pos)
@@ -55,20 +58,14 @@ class Box:
 # MCV: Most Constrained Variable
 # return the most constrained box from boxes if it's index is in indices
 def get_MCV_box(boxes: [Box], indices: [int]) -> Box:
-    if len(boxes) == 0:
-        return None
-
-    mcv = reduce(lambda b1, b2: b1 if len(b1.remaining_pos) < len(b2.remaining_pos) and b1.idx in indices else b2,
-                 boxes)
+    mcv = reduce(lambda b1, b2: b1 if len(b1.remaining_pos) < len(b2.remaining_pos) and b1.idx in indices else b2, boxes)
     return mcv
 
 
 # places boxes in the room from the queue and puts them in fix_pos with their final position
 # return fix_pos:   if all boxes are placed
 # return None:      if the boxes cannot be placed
-def place_boxes(queue: [Box], fix_pos: [Box] = None) -> [Box]:
-    if fix_pos is None:
-        fix_pos = []
+def place_boxes(queue: [Box], fix_pos: [Box] = []) -> [Box]:
     if len(queue) == 0:
         return fix_pos
 
@@ -104,8 +101,8 @@ def pretty_print(boxes: [Box], rows: int, cols: int):
     arr = [[0 for n in range(cols)] for n in range(rows)]
 
     for b in boxes:
-        for row in range(b.final_pos.start[0], b.final_pos.end[0]):
-            for col in range(b.final_pos.start[1], b.final_pos.end[1]):
+        for row in range(b.final_pos.start.y, b.final_pos.end.y):
+            for col in range(b.final_pos.start.x, b.final_pos.end.x):
                 arr[row][col] = b.idx
 
     for row in arr:
