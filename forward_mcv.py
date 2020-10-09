@@ -117,8 +117,8 @@ def forward_checking():
     pillars = []
     boxes = []
     for pi in range(pillar_count):
-        (x, y) = map(int, input().split("\t"))
-        pillars.append((x, y))
+        (row, col) = map(int, input().split("\t"))
+        pillars.append(Point(row, col))
     for bi in range(box_count):
         (length, width) = map(int, input().split("\t"))
         box = Box(bi + 1)
