@@ -54,6 +54,12 @@ class Box:
         new_remaining_pos = list(filter(is_compatible, self.remaining_pos))
         return Box(self.idx, new_remaining_pos)
 
+    # returns a new box with the final position added
+    def added_final(self, final_pos: BoxPosition) -> Box:
+        new_box = Box(self.idx, self.remaining_pos)
+        new_box.final_pos = final_pos
+        return new_box
+
 
 # MCV: Most Constrained Variable
 # return the most constrained box from boxes if it's index is in indices
@@ -75,18 +81,15 @@ def place_boxes(queue: [Box], fix_pos: [Box] = []) -> [Box]:
         for pos in mcv_box.remaining_pos:
             candidate = True
             new_queue = []
-            for box in queue:
+            for box in queue and candidate:
                 if box.idx != mcv_box.idx:
                     new_box = box.added_box(pos)
                     new_queue.append(new_box)
                     if len(new_box.remaining_pos) == 0:
                         candidate = False
-                        break
 
             if candidate:
-                mcv_box.final_pos = pos
-                new_fix_pos = fix_pos + [mcv_box]
-                result = place_boxes(new_queue, new_fix_pos)
+                result = place_boxes(new_queue, fix_pos + [mcv_box.added_final(pos)])
                 if result is not None:
                     return result
 
