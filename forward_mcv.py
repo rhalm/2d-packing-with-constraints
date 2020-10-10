@@ -8,7 +8,7 @@ class Point:
         self.col = col
 
 
-# box's position represented by its start (top, left) and end (bottom, right)
+# box's position in the room - start: (top, left), end: (bottom, right)
 class BoxPosition:
     def __init__(self, start: Point, end: Point):
         self.start = start
@@ -16,18 +16,17 @@ class BoxPosition:
 
 
 class Box:
-    def __init__(self, idx: int, remaining_pos: [BoxPosition] = []):
-        self.remaining_pos = remaining_pos
-        self.idx = idx
+    def __init__(self, id: int, remaining_pos: [BoxPosition] = []):
+        self.remaining_pos = remaining_pos # all remaining valid positions for the given box
+        self.id = id
         self.final_pos = None
 
     # check constraints for the given position
-    def check_pos(self, pos: BoxPosition, rows: int, cols: int, pillars: [Point]) -> bool:
+    def is_pos_valid(self, pos: BoxPosition, rows: int, cols: int, pillars: [Point]) -> bool:
         if pos.end.row <= rows and pos.end.col <= cols:
-            for (prow, pcol) in pillars:
-                if pos.start.row < prow < pos.end.row and pos.start.col < pcol < pos.end.col:
-                    return False
-            return True
+            return all(
+                map(lambda p: not (pos.start.row < p.row < pos.end.row and pos.start.col < p.col < pos.end.col),
+                    pillars))
         return False
 
     # initialize remaining positions from the constraints
@@ -36,67 +35,67 @@ class Box:
             for c in range(0, cols):
                 # first without rotating
                 pos = BoxPosition(Point(r, c), Point(r + length, c + width))
-                if self.check_pos(pos, rows, cols, pillars):
+                if self.is_pos_valid(pos, rows, cols, pillars):
                     self.remaining_pos.append(pos)
                 if length != width:
                     # if it's not a square then check rotated
                     pos_rotated = BoxPosition(Point(r, c), Point(r + width, c + length))
-                    if self.check_pos(pos_rotated, rows, cols, pillars):
+                    if self.is_pos_valid(pos_rotated, rows, cols, pillars):
                         self.remaining_pos.append(pos_rotated)
 
     # returns a new box that we'd get if we added the box in the given position
-    # box coordinates - start: (top, left), end: (bottom, right)
     def added_box(self, added: BoxPosition) -> Box:
         def is_compatible(p):
             return not ((p.start.row < added.end.row and p.start.col < added.end.col)
                         and (p.end.row > added.start.row and p.end.col > added.start.col))
 
         new_remaining_pos = list(filter(is_compatible, self.remaining_pos))
-        return Box(self.idx, new_remaining_pos)
+        return Box(self.id, new_remaining_pos)
 
     # returns a new box with the final position added
     def added_final(self, final_pos: BoxPosition) -> Box:
-        new_box = Box(self.idx, self.remaining_pos)
+        new_box = Box(self.id, self.remaining_pos)
         new_box.final_pos = final_pos
         return new_box
 
 
 # MCV: Most Constrained Variable
-# return the most constrained box from boxes if it's index is in indices
-def get_MCV_box(boxes: [Box], indices: [int]) -> Box:
-    mcv = reduce(lambda b1, b2: b1 if len(b1.remaining_pos) < len(b2.remaining_pos) and b1.idx in indices else b2, boxes)
-    return mcv
+# return the most constrained box from boxes if its id is in from_ids
+def mcv_box_from(boxes: [Box], from_ids: [int]) -> Box:
+    return reduce(
+        lambda b1, b2: b1 if len(b1.remaining_pos) < len(b2.remaining_pos) and b1.id in from_ids else b2,
+        boxes)
 
 
-# places boxes in the room from the queue and puts them in fix_pos with their final position
-# return fix_pos:   if all boxes are placed
-# return None:      if the boxes cannot be placed
-def place_boxes(queue: [Box], fix_pos: [Box] = []) -> [Box]:
-    if len(queue) == 0:
-        return fix_pos
+# places boxes in the room from the unplaced_boxes and puts them in placed_boxes with their final position
+# return placed_boxes:  if all boxes are placed
+# return None:          if the boxes cannot be placed
+# recursive
+def place_boxes(unplaced_boxes: [Box], placed_boxes: [Box] = []) -> [Box]:
+    if len(unplaced_boxes) == 0:
+        return placed_boxes
+    else:
+        ids = [box.id for box in unplaced_boxes]
+        while len(ids) != 0:
+            mcv_box = mcv_box_from(unplaced_boxes, ids)
+            for pos in mcv_box.remaining_pos:
+                candidate = True
+                new_unplaced_boxes = []
+                for box in unplaced_boxes and candidate:
+                    if box.id != mcv_box.id:
+                        new_box = box.added_box(pos)
+                        new_unplaced_boxes.append(new_box)
+                        if len(new_box.remaining_pos) == 0: # one box cannot be placed if mcv_box is chosen
+                            candidate = False
 
-    indices = [b.idx for b in queue]
-    while len(indices) != 0:
-        mcv_box = get_MCV_box(queue, indices)
-        for pos in mcv_box.remaining_pos:
-            candidate = True
-            new_queue = []
-            for box in queue and candidate:
-                if box.idx != mcv_box.idx:
-                    new_box = box.added_box(pos)
-                    new_queue.append(new_box)
-                    if len(new_box.remaining_pos) == 0:
-                        candidate = False
+                if candidate:
+                    result = place_boxes(new_unplaced_boxes, placed_boxes + [mcv_box.added_final(pos)])
+                    if result is not None:
+                        return result
 
-            if candidate:
-                result = place_boxes(new_queue, fix_pos + [mcv_box.added_final(pos)])
-                if result is not None:
-                    return result
-
-        # if it wasn't successful then remove its index
-        indices.remove(mcv_box.idx)
-
-    return None
+            # if it wasn't successful then remove its id
+            ids.remove(mcv_box.id)
+        return None
 
 
 # prints solution in a matrix format
@@ -106,7 +105,7 @@ def pretty_print(boxes: [Box], rows: int, cols: int):
     for b in boxes:
         for row in range(b.final_pos.start.y, b.final_pos.end.y):
             for col in range(b.final_pos.start.x, b.final_pos.end.x):
-                arr[row][col] = b.idx
+                arr[row][col] = b.id
 
     for row in arr:
         print("\t".join(map(str, row)))
