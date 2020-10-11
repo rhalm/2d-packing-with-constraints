@@ -16,8 +16,10 @@ class BoxPosition:
 
 
 class Box:
-    def __init__(self, id: int, remaining_pos: [BoxPosition] = []):
-        self.remaining_pos = remaining_pos # all remaining valid positions for the given box
+    def __init__(self, id: int, remaining_pos=None):
+        if remaining_pos is None:
+            remaining_pos = []
+        self.remaining_pos = remaining_pos # all remaining valid positions
         self.id = id
         self.final_pos = None
 
@@ -71,7 +73,9 @@ def mcv_box_from(boxes: [Box], from_ids: [int]) -> Box:
 # return placed_boxes:  if all boxes are placed
 # return None:          if the boxes cannot be placed
 # recursive
-def place_boxes(unplaced_boxes: [Box], placed_boxes: [Box] = []) -> [Box]:
+def place_boxes(unplaced_boxes: [Box], placed_boxes=None) -> [Box]:
+    if placed_boxes is None:
+        placed_boxes = []
     if len(unplaced_boxes) == 0:
         return placed_boxes
     else:
@@ -81,8 +85,8 @@ def place_boxes(unplaced_boxes: [Box], placed_boxes: [Box] = []) -> [Box]:
             for pos in mcv_box.remaining_pos:
                 candidate = True
                 new_unplaced_boxes = []
-                for box in unplaced_boxes and candidate:
-                    if box.id != mcv_box.id:
+                for box in unplaced_boxes:
+                    if candidate and box.id != mcv_box.id:
                         new_box = box.added_box(pos)
                         new_unplaced_boxes.append(new_box)
                         if len(new_box.remaining_pos) == 0: # one box cannot be placed if mcv_box is chosen
@@ -103,8 +107,8 @@ def pretty_print(boxes: [Box], rows: int, cols: int):
     arr = [[0 for n in range(cols)] for n in range(rows)]
 
     for b in boxes:
-        for row in range(b.final_pos.start.y, b.final_pos.end.y):
-            for col in range(b.final_pos.start.x, b.final_pos.end.x):
+        for row in range(b.final_pos.start.row, b.final_pos.end.row):
+            for col in range(b.final_pos.start.col, b.final_pos.end.col):
                 arr[row][col] = b.id
 
     for row in arr:
