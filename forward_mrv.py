@@ -61,9 +61,9 @@ class Box:
         return new_box
 
 
-# MCV: Most Constrained Variable
-# return the most constrained box from boxes if its id is in from_ids
-def mcv_box_from(boxes: [Box], from_ids: [int]) -> Box:
+# MRV: Minimum Remaining Values
+# returns box with the minimum remaining values from boxes if its id is in from_ids
+def mrv_box_from(boxes: [Box], from_ids: [int]) -> Box:
     return reduce(
         lambda b1, b2: b1 if len(b1.remaining_pos) < len(b2.remaining_pos) and b1.id in from_ids else b2,
         boxes)
@@ -81,24 +81,24 @@ def place_boxes(unplaced_boxes: [Box], placed_boxes=None) -> [Box]:
     else:
         ids = [box.id for box in unplaced_boxes]
         while len(ids) != 0:
-            mcv_box = mcv_box_from(unplaced_boxes, ids)
-            for pos in mcv_box.remaining_pos:
+            mrv_box = mrv_box_from(unplaced_boxes, ids)
+            for pos in mrv_box.remaining_pos:
                 candidate = True
                 new_unplaced_boxes = []
                 for box in unplaced_boxes:
-                    if candidate and box.id != mcv_box.id:
+                    if candidate and box.id != mrv_box.id:
                         new_box = box.added_box(pos)
                         new_unplaced_boxes.append(new_box)
-                        if len(new_box.remaining_pos) == 0: # one box cannot be placed if mcv_box is chosen
+                        if len(new_box.remaining_pos) == 0: # one box cannot be placed if mrv_box is chosen
                             candidate = False
 
                 if candidate:
-                    result = place_boxes(new_unplaced_boxes, placed_boxes + [mcv_box.added_final(pos)])
+                    result = place_boxes(new_unplaced_boxes, placed_boxes + [mrv_box.added_final(pos)])
                     if result is not None:
                         return result
 
             # if it wasn't successful then remove its id
-            ids.remove(mcv_box.id)
+            ids.remove(mrv_box.id)
         return None
 
 
